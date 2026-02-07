@@ -4,24 +4,24 @@ const CONFIG = {
     optionsPerQuestion: 4
 };
 
-// Vocabulary dataset (exactly as specified)
+// Vocabulary dataset (без эмодзи, только слова)
 const VOCABULARY = [
-    { es: "madre", ru: "мама", emoji: "👩" },
-    { es: "padre", ru: "папа", emoji: "👨" },
-    { es: "hermano", ru: "брат", emoji: "👦" },
-    { es: "hermana", ru: "сестра", emoji: "👧" },
-    { es: "abuela", ru: "бабушка", emoji: "👵" },
-    { es: "abuelo", ru: "дедушка", emoji: "👴" },
-    { es: "hijo", ru: "сын", emoji: "🧒" },
-    { es: "hija", ru: "дочь", emoji: "👧" },
-    { es: "tía", ru: "тётя", emoji: "👩‍🦱" },
-    { es: "tío", ru: "дядя", emoji: "👨‍🦱" },
-    { es: "primo", ru: "двоюродный брат", emoji: "👦" },
-    { es: "prima", ru: "двоюродная сестра", emoji: "👧" },
-    { es: "esposo", ru: "муж", emoji: "🤵" },
-    { es: "esposa", ru: "жена", emoji: "👰" },
-    { es: "nieto", ru: "внук", emoji: "👶" },
-    { es: "nieta", ru: "внучка", emoji: "👶" }
+    { es: "madre", ru: "мама" },
+    { es: "padre", ru: "папа" },
+    { es: "hermano", ru: "брат" },
+    { es: "hermana", ru: "сестра" },
+    { es: "abuela", ru: "бабушка" },
+    { es: "abuelo", ru: "дедушка" },
+    { es: "hijo", ru: "сын" },
+    { es: "hija", ru: "дочь" },
+    { es: "tía", ru: "тётя" },
+    { es: "tío", ru: "дядя" },
+    { es: "primo", ru: "двоюродный брат" },
+    { es: "prima", ru: "двоюродная сестра" },
+    { es: "esposo", ru: "муж" },
+    { es: "esposa", ru: "жена" },
+    { es: "nieto", ru: "внук" },
+    { es: "nieta", ru: "внучка" }
 ];
 
 // Game state
@@ -69,43 +69,46 @@ function getRandomInt(min, max) {
 function generateQuestions() {
     const questions = [];
     
-    // Create a pool of available words
-    let availableWords = [...VOCABULARY];
-    
     for (let i = 0; i < CONFIG.totalQuestions; i++) {
-        // If we've used all words, reset the pool
-        if (availableWords.length === 0) {
-            availableWords = [...VOCABULARY];
-        }
+        // Pick a random word from vocabulary
+        const correctIndex = Math.floor(Math.random() * VOCABULARY.length);
+        const correctWord = VOCABULARY[correctIndex];
         
-        // Pick a random word from available words
-        const randomIndex = Math.floor(Math.random() * availableWords.length);
-        const correctWord = availableWords[randomIndex];
-        
-        // Remove it from available words for this round
-        availableWords.splice(randomIndex, 1);
-        
-        // Randomly decide question type
-        const questionType = Math.random() > 0.5 ? 'word' : 'emoji';
+        // Randomly decide question direction
+        // true = русский → испанский, false = испанский → русский
+        const isRussianToSpanish = Math.random() > 0.5;
         
         // Generate incorrect options
         const incorrectOptions = [];
         const allWords = [...VOCABULARY];
         
-        // Create a pool of words excluding the correct one
+        // Remove correct word from pool
         const wordPool = allWords.filter(word => word.es !== correctWord.es);
         
-        // Shuffle and pick 3 unique incorrect options
+        // Shuffle and pick 3 incorrect options
         const shuffledPool = shuffleArray(wordPool);
         for (let j = 0; j < CONFIG.optionsPerQuestion - 1; j++) {
-            incorrectOptions.push(shuffledPool[j].ru);
+            if (isRussianToSpanish) {
+                incorrectOptions.push(shuffledPool[j].es); // испанские варианты
+            } else {
+                incorrectOptions.push(shuffledPool[j].ru); // русские варианты
+            }
+        }
+        
+        // Create options array
+        let options;
+        if (isRussianToSpanish) {
+            options = shuffleArray([correctWord.es, ...incorrectOptions]);
+        } else {
+            options = shuffleArray([correctWord.ru, ...incorrectOptions]);
         }
         
         // Create question object
         const question = {
-            type: questionType,
+            direction: isRussianToSpanish ? 'ru→es' : 'es→ru',
             correctWord: correctWord,
-            options: shuffleArray([correctWord.ru, ...incorrectOptions])
+            options: options,
+            questionText: isRussianToSpanish ? correctWord.ru : correctWord.es
         };
         
         questions.push(question);
@@ -116,7 +119,7 @@ function generateQuestions() {
 
 // Game functions
 function startGame() {
-    console.log('Start game function called'); // Debug log
+    console.log('Start game function called');
     
     // Reset game state
     gameState = {
@@ -149,13 +152,18 @@ function loadQuestion() {
     nextBtn.disabled = true;
     feedbackElement.innerHTML = '';
     
-    // Update question type indicator
-    if (question.type === 'word') {
-        questionTypeElement.textContent = 'Слово на испанском';
-        questionContentElement.textContent = question.correctWord.es;
+    // Update question type and content
+    if (question.direction === 'ru→es') {
+        questionTypeElement.textContent = 'Перевод с русского на испанский';
+        questionContentElement.textContent = `"${question.questionText}"`;
+        questionContentElement.style.fontSize = '2.5rem';
+        questionContentElement.style.color = '#4a6fa5';
     } else {
-        questionTypeElement.textContent = 'Эмодзи семьи';
-        questionContentElement.textContent = question.correctWord.emoji;
+        questionTypeElement.textContent = 'Перевод с испанского на русский';
+        questionContentElement.textContent = `"${question.questionText}"`;
+        questionContentElement.style.fontSize = '2.5rem';
+        questionContentElement.style.color = '#4a6fa5';
+        questionContentElement.style.fontStyle = 'italic';
     }
     
     // Generate options
@@ -166,7 +174,7 @@ function loadQuestion() {
         optionElement.textContent = option;
         optionElement.dataset.value = option;
         
-        optionElement.addEventListener('click', () => selectAnswer(option));
+        optionElement.addEventListener('click', () => selectAnswer(option, question.direction));
         optionsContainer.appendChild(optionElement);
     });
     
@@ -176,7 +184,9 @@ function loadQuestion() {
 
 function updateProgress() {
     const progress = ((gameState.currentQuestionIndex + 1) / CONFIG.totalQuestions) * 100;
-    progressBarFill.style.width = `${progress}%`;
+    if (progressBarFill) {
+        progressBarFill.style.width = `${progress}%`;
+    }
     progressText.textContent = `Вопрос ${gameState.currentQuestionIndex + 1} из ${CONFIG.totalQuestions}`;
 }
 
@@ -184,14 +194,17 @@ function updateScore() {
     scoreElement.textContent = gameState.score;
 }
 
-function selectAnswer(answer) {
+function selectAnswer(answer, direction) {
     if (gameState.isAnswered) return;
     
     gameState.selectedAnswer = answer;
     gameState.isAnswered = true;
     
     const question = gameState.questions[gameState.currentQuestionIndex];
-    const isCorrect = answer === question.correctWord.ru;
+    
+    // Determine correct answer based on direction
+    const correctAnswer = direction === 'ru→es' ? question.correctWord.es : question.correctWord.ru;
+    const isCorrect = answer === correctAnswer;
     
     // Highlight selected answer
     const optionElements = document.querySelectorAll('.option');
@@ -210,7 +223,7 @@ function selectAnswer(answer) {
         }
         
         // Highlight correct answer if user was wrong
-        if (!isCorrect && option.dataset.value === question.correctWord.ru) {
+        if (!isCorrect && option.dataset.value === correctAnswer) {
             option.classList.add('correct');
         }
         
@@ -219,27 +232,30 @@ function selectAnswer(answer) {
     });
     
     // Show feedback
-    showFeedback(isCorrect, question.correctWord);
+    showFeedback(isCorrect, question.correctWord, direction);
     
     // Enable next button
     nextBtn.disabled = false;
 }
 
-function showFeedback(isCorrect, correctWord) {
+function showFeedback(isCorrect, correctWord, direction) {
     let feedbackHTML = '';
+    const correctTranslation = direction === 'ru→es' ? correctWord.es : correctWord.ru;
+    const fromLang = direction === 'ru→es' ? correctWord.ru : correctWord.es;
+    const toLang = direction === 'ru→es' ? correctWord.es : correctWord.ru;
     
     if (isCorrect) {
         feedbackHTML = `
             <div class="feedback-content feedback-correct">
                 <span class="feedback-emoji">✅</span>
-                Правильно! ${correctWord.es} = ${correctWord.ru}
+                Правильно! ${fromLang} = ${toLang}
             </div>
         `;
     } else {
         feedbackHTML = `
             <div class="feedback-content feedback-incorrect">
                 <span class="feedback-emoji">❌</span>
-                Неправильно. Правильный ответ: ${correctWord.ru}
+                Неправильно. ${fromLang} = ${toLang}
             </div>
         `;
     }
@@ -300,7 +316,7 @@ function restartGame() {
 
 // Initialize event listeners when DOM is loaded
 function initializeGame() {
-    console.log('Initializing game...'); // Debug log
+    console.log('Initializing game...');
     
     // Set initial screen
     startScreen.classList.add('active');
@@ -310,7 +326,7 @@ function initializeGame() {
     // Add event listeners
     if (startBtn) {
         startBtn.addEventListener('click', startGame);
-        console.log('Start button event listener added'); // Debug log
+        console.log('Start button event listener added');
     } else {
         console.error('Start button not found!');
     }
@@ -323,16 +339,18 @@ function initializeGame() {
         restartBtn.addEventListener('click', restartGame);
     }
     
-    // Add some animation to the start button
-    startBtn.addEventListener('mouseenter', function() {
-        this.style.transform = 'scale(1.05)';
-    });
+    // Add hover animation to the start button
+    if (startBtn) {
+        startBtn.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.05)';
+        });
+        
+        startBtn.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+        });
+    }
     
-    startBtn.addEventListener('mouseleave', function() {
-        this.style.transform = 'scale(1)';
-    });
-    
-    console.log('Game initialized successfully'); // Debug log
+    console.log('Game initialized successfully');
 }
 
 // Initialize the game when DOM is fully loaded
