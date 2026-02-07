@@ -41,7 +41,7 @@ const startBtn = document.getElementById('start-btn');
 const nextBtn = document.getElementById('next-btn');
 const restartBtn = document.getElementById('restart-btn');
 const scoreElement = document.getElementById('score');
-const progressBar = document.getElementById('progress-bar');
+const progressBarFill = document.getElementById('progress-bar-fill');
 const progressText = document.getElementById('progress-text');
 const questionTypeElement = document.getElementById('question-type');
 const questionContentElement = document.getElementById('question-content');
@@ -54,7 +54,6 @@ const resultsEmojiElement = document.getElementById('results-emoji');
 
 // Utility functions
 function shuffleArray(array) {
-    // Fisher-Yates shuffle algorithm
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -69,31 +68,34 @@ function getRandomInt(min, max) {
 
 function generateQuestions() {
     const questions = [];
-    const vocabCopy = [...VOCABULARY];
+    
+    // Create a pool of available words
+    let availableWords = [...VOCABULARY];
     
     for (let i = 0; i < CONFIG.totalQuestions; i++) {
-        // Select a random word from vocabulary
-        const correctIndex = getRandomInt(0, vocabCopy.length - 1);
-        const correctWord = vocabCopy.splice(correctIndex, 1)[0];
-        
-        if (vocabCopy.length === 0) {
-            // Refill the array if empty
-            vocabCopy.push(...VOCABULARY.filter(item => 
-                !questions.some(q => q.correctWord.es === item.es)
-            ));
+        // If we've used all words, reset the pool
+        if (availableWords.length === 0) {
+            availableWords = [...VOCABULARY];
         }
         
-        // Randomly decide question type: word or emoji
+        // Pick a random word from available words
+        const randomIndex = Math.floor(Math.random() * availableWords.length);
+        const correctWord = availableWords[randomIndex];
+        
+        // Remove it from available words for this round
+        availableWords.splice(randomIndex, 1);
+        
+        // Randomly decide question type
         const questionType = Math.random() > 0.5 ? 'word' : 'emoji';
         
         // Generate incorrect options
         const incorrectOptions = [];
         const allWords = [...VOCABULARY];
         
-        // Remove correct word from pool
+        // Create a pool of words excluding the correct one
         const wordPool = allWords.filter(word => word.es !== correctWord.es);
         
-        // Shuffle and pick 3 incorrect options
+        // Shuffle and pick 3 unique incorrect options
         const shuffledPool = shuffleArray(wordPool);
         for (let j = 0; j < CONFIG.optionsPerQuestion - 1; j++) {
             incorrectOptions.push(shuffledPool[j].ru);
@@ -114,6 +116,8 @@ function generateQuestions() {
 
 // Game functions
 function startGame() {
+    console.log('Start game function called'); // Debug log
+    
     // Reset game state
     gameState = {
         currentQuestionIndex: 0,
@@ -156,7 +160,7 @@ function loadQuestion() {
     
     // Generate options
     optionsContainer.innerHTML = '';
-    question.options.forEach((option, index) => {
+    question.options.forEach((option) => {
         const optionElement = document.createElement('div');
         optionElement.className = 'option';
         optionElement.textContent = option;
@@ -172,8 +176,12 @@ function loadQuestion() {
 
 function updateProgress() {
     const progress = ((gameState.currentQuestionIndex + 1) / CONFIG.totalQuestions) * 100;
-    progressBar.style.width = `${progress}%`;
+    progressBarFill.style.width = `${progress}%`;
     progressText.textContent = `Вопрос ${gameState.currentQuestionIndex + 1} из ${CONFIG.totalQuestions}`;
+}
+
+function updateScore() {
+    scoreElement.textContent = gameState.score;
 }
 
 function selectAnswer(answer) {
@@ -239,10 +247,6 @@ function showFeedback(isCorrect, correctWord) {
     feedbackElement.innerHTML = feedbackHTML;
 }
 
-function updateScore() {
-    scoreElement.textContent = gameState.score;
-}
-
 function nextQuestion() {
     gameState.currentQuestionIndex++;
     
@@ -294,15 +298,30 @@ function restartGame() {
     startGame();
 }
 
-// Event Listeners
-startBtn.addEventListener('click', startGame);
-nextBtn.addEventListener('click', nextQuestion);
-restartBtn.addEventListener('click', restartGame);
-
-// Initialize the game on page load
-document.addEventListener('DOMContentLoaded', () => {
-    // Set initial state
+// Initialize event listeners when DOM is loaded
+function initializeGame() {
+    console.log('Initializing game...'); // Debug log
+    
+    // Set initial screen
     startScreen.classList.add('active');
+    quizScreen.classList.remove('active');
+    resultsScreen.classList.remove('active');
+    
+    // Add event listeners
+    if (startBtn) {
+        startBtn.addEventListener('click', startGame);
+        console.log('Start button event listener added'); // Debug log
+    } else {
+        console.error('Start button not found!');
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', nextQuestion);
+    }
+    
+    if (restartBtn) {
+        restartBtn.addEventListener('click', restartGame);
+    }
     
     // Add some animation to the start button
     startBtn.addEventListener('mouseenter', function() {
@@ -312,4 +331,14 @@ document.addEventListener('DOMContentLoaded', () => {
     startBtn.addEventListener('mouseleave', function() {
         this.style.transform = 'scale(1)';
     });
-});
+    
+    console.log('Game initialized successfully'); // Debug log
+}
+
+// Initialize the game when DOM is fully loaded
+document.addEventListener('DOMContentLoaded', initializeGame);
+
+// Also try to initialize if DOM is already loaded
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(initializeGame, 1);
+}
